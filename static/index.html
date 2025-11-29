@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Solver Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div id="login-section" class="card">
+            <h2>Start Quiz</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required value="23f2001072@ds.study.iitm.ac.in">
+                </div>
+                <div class="form-group">
+                    <label for="secret">Secret</label>
+                    <input type="password" id="secret" required value="anayppatil">
+                </div>
+                <div class="form-group">
+                    <label for="url">Quiz URL</label>
+                    <input type="url" id="url" required value="https://tdsbasictest.vercel.app/quiz/10">
+                </div>
+                <button type="submit" class="btn-primary">Start Solver</button>
+            </form>
+        </div>
+
+        <!-- Dashboard Section (Hidden initially) -->
+        <div id="dashboard-section" class="hidden">
+            <header>
+                <h1>Solver Dashboard</h1>
+                <span id="status-badge" class="badge">Running</span>
+            </header>
+
+            <div class="grid">
+                <!-- Logs Panel -->
+                <div class="card logs-card">
+                    <h3>Live Logs</h3>
+                    <div id="logs-container" class="terminal">
+                        <!-- Logs will appear here -->
+                    </div>
+                </div>
+
+                <!-- History Panel -->
+                <div class="card history-card">
+                    <h3>Task History</h3>
+                    <div id="history-container">
+                        <!-- History items will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById('login-form');
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const logsContainer = document.getElementById('logs-container');
+        const historyContainer = document.getElementById('history-container');
+        let ws;
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const secret = document.getElementById('secret').value;
+            const url = document.getElementById('url').value;
+
+            // Start Quiz via API
+            try {
+                const response = await fetch('/quiz', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, secret, url })
+                });
+
+                if (response.ok) {
+                    // Switch to Dashboard
+                    loginSection.classList.add('hidden');
+                    dashboardSection.classList.remove('hidden');
+                    connectWebSocket();
+                } else {
+                    alert('Failed to start quiz: ' + await response.text());
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        });
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/logs`);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'log') {
+                    appendLog(data.message, data.level);
+                } else if (data.type === 'history') {
+                    appendHistory(data.item);
+                }
+            };
+
+            ws.onclose = () => {
+                appendLog("Connection lost. Reconnecting...", "error");
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function appendLog(message, level) {
+            const div = document.createElement('div');
+            div.className = `log-line log-${level || 'info'}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsContainer.appendChild(div);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function appendHistory(item) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div class="history-header">
+                    <strong>${item.question_type || 'Question'}</strong>
+                    <span class="badge ${item.correct ? 'success' : 'error'}">${item.correct ? 'Correct' : 'Wrong'}</span>
+                </div>
+                <div class="history-details">
+                    <p><strong>Answer:</strong> ${item.answer}</p>
+                    <p><strong>URL:</strong> <a href="${item.url}" target="_blank">${item.url}</a></p>
+                </div>
+            `;
+            historyContainer.prepend(div);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+playwright
+openai
+pandas
+requests
+beautifulsoup4
+python-multipart
+python-dotenv
+websockets
+pypdf
+pillow
+matplotlib
+seaborn
+scikit-learn
+openai-whisper
